@@ -2,9 +2,9 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::app::nlp::{Intent, IntentClassifier};
+use crate::app::nlp::intent_classifier::{Intent, IntentClassifier};
 use crate::app::chat::conversation_handler::ConversationHandler;
-use crate::app::gift::recommendation::RecommendationEngine;
+use crate::app::gift::recommendation::{GiftRecommendation, RecommendationEngine};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserContext {
