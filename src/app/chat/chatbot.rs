@@ -1,15 +1,16 @@
-use crate::nlp::IntentClassifier;
-use crate::chat::ConversationHandler;
+use crate::app::error::{ChatError, Result};
+use crate::app::nlp::IntentClassifier;
 use serde::{Serialize, Deserialize};
 use async_trait::async_trait;
+use log::{info, error};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserContext {
-    relationship: Option<String>,
-    gift_amount: Option<(u32, u32)>,
-    gift_type: Option<String>,
-    gender: Option<String>,
-    age_range: Option<String>,
+    pub relationship: Option<String>,
+    pub gift_amount: Option<(u32, u32)>,
+    pub gift_type: Option<String>,
+    pub gender: Option<String>,
+    pub age_range: Option<String>,
 }
 
 #[derive(Debug)]
@@ -24,18 +25,14 @@ pub enum ConversationState {
 }
 
 pub struct Chatbot {
-    conversation_handler: ConversationHandler,
-    intent_classifier: IntentClassifier,
     context: UserContext,
     state: ConversationState,
+    intent_classifier: IntentClassifier,
 }
 
-#[async_trait]
 impl Chatbot {
     pub fn new() -> Self {
         Self {
-            conversation_handler: ConversationHandler::new(),
-            intent_classifier: IntentClassifier::new(),
             context: UserContext {
                 relationship: None,
                 gift_amount: None,
@@ -44,20 +41,43 @@ impl Chatbot {
                 age_range: None,
             },
             state: ConversationState::Initial,
+            intent_classifier: IntentClassifier::new(),
         }
     }
 
-    pub async fn process_message(&mut self, message: String) -> Result<String, ChatError> {
-        match self.state {
-            ConversationState::Initial => Ok(self.start_conversation()),
-            ConversationState::AskRelationship => Ok(self.handle_relationship(&message)),
-            ConversationState::AskGiftAmount => Ok(self.handle_gift_amount(&message)),
-            _ => Ok("処理を継続します...".to_string()),
+    pub async fn process_message(&mut self, message: &str) -> Result<String> {
+        info!("Processing message: {}", message);
+        
+        if message.trim().is_empty() {
+            return Err(ChatError::InvalidInput("メッセージが空です".to_string()));
+        }
+
+        let response = match self.state {
+            ConversationState::Initial => self.start_conversation(),
+            ConversationState::AskRelationship => self.handle_relationship(message),
+            ConversationState::AskGiftAmount => self.handle_gift_amount(message),
+            ConversationState::AskGiftType => self.handle_gift_type(message),
+            ConversationState::AskGender => self.handle_gender(message),
+            ConversationState::AskAgeRange => self.handle_age_range(message),
+            ConversationState::GiftRecommendation => self.generate_recommendations().await,
+        };
+
+        match response {
+            Ok(msg) => {
+                info!("Generated response: {}", msg);
+                Ok(msg)
+            }
+            Err(e) => {
+                error!("Error processing message: {:?}", e);
+                Err(e)
+            }
         }
     }
 
-    fn start_conversation(&mut self) -> String {
+    fn start_conversation(&mut self) -> Result<String> {
         self.state = ConversationState::AskRelationship;
-        "就職祝いのお返しについて、お手伝いさせていただきます。まず、お祝いをくれた方との関係性を教えてください。".to_string()
+        Ok("就職祝いのお返しについて、お手伝いさせていただきます。まず、お祝いをくれた方との関係性を教えてください。".to_string())
     }
+
+    // 他のハンドラメソッドも同様に実装...
 }
