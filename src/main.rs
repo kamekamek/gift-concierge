@@ -3,6 +3,9 @@ mod app {
         pub mod chatbot;
         pub mod conversation_handler;
     }
+    pub mod nlp {
+        pub mod intent_classifier;
+    }
 }
 
 use app::chat::chatbot::Chatbot;
