@@ -3,20 +3,20 @@
 ## 1. コアコンポーネント（優先度: 高）
 ### 1.1 チャットボット基盤 (src/app/chat/)
 - [x] chatbot.rs の基本構造
-- [ ] conversation_handler.rs の会話フロー制御
-- [ ] ユーザーコンテキスト管理
+- [x] conversation_handler.rs の会話フロー制御
+- [x] ユーザーコンテキスト管理
 推定工数: 3日
 
 ### 1.2 自然言語処理 (src/app/nlp/)
-- [ ] intent_classifier.rs の実装
-- [ ] 意図解析ロジック
-- [ ] パターンマッチング
+- [x] intent_classifier.rs の実装
+- [x] 意図解析ロジック
+- [x] パターンマッチング
 推定工数: 2日
 
 ### 1.3 ギフト推薦システム (src/app/gift/)
-- [ ] recommendation.rs の実装
-- [ ] Perplexity API連携
-- [ ] 検索結果フィルタリング
+- [x] recommendation.rs の実装
+- [x] Perplexity API連携
+- [x] 検索結果フィルタリング
 推定工数: 3日
 
 ## 2. データ管理（優先度: 中）
