@@ -4,6 +4,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use crate::app::nlp::{Intent, IntentClassifier};
 use crate::app::chat::conversation_handler::ConversationHandler;
+use crate::app::gift::recommendation::RecommendationEngine;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserContext {
@@ -20,6 +21,7 @@ pub struct Chatbot {
     contexts: Arc<Mutex<Vec<UserContext>>>,
     intent_classifier: IntentClassifier,
     conversation_handler: ConversationHandler,
+    recommendation_engine: RecommendationEngine,
 }
 
 impl Chatbot {
@@ -28,6 +30,7 @@ impl Chatbot {
             contexts: Arc::new(Mutex::new(Vec::new())),
             intent_classifier: IntentClassifier::new(),
             conversation_handler: ConversationHandler::new(),
+            recommendation_engine: RecommendationEngine::new(),
         }
     }
 
@@ -94,7 +97,33 @@ impl Chatbot {
             Intent::AskAge => {
                 context.recipient_age = Some(message.to_string());
                 self.conversation_handler.transition();
-                self.conversation_handler.get_next_question()
+                
+                // 必要な情報が揃った場合、ギフトを推薦
+                if let (Some(relationship), Some(budget)) = (context.relationship.as_ref(), context.budget) {
+                    let recommendations = self.recommendation_engine
+                        .get_recommendations(
+                            relationship,
+                            budget,
+                            context.is_bulk_gift.unwrap_or(false),
+                            context.recipient_gender.as_deref(),
+                            context.recipient_age.as_deref(),
+                        )
+                        .await?;
+
+                    let mut response = "以下のギフトをおすすめいたします：\n\n".to_string();
+                    for (i, rec) in recommendations.iter().enumerate() {
+                        response.push_str(&format!(
+                            "{}. {}\n   {}\n   価格: {}円\n\n",
+                            i + 1,
+                            rec.name,
+                            rec.description,
+                            rec.price
+                        ));
+                    }
+                    response
+                } else {
+                    self.conversation_handler.get_next_question()
+                }
             }
             Intent::AskManners => "のし紙には「御祝」と記載し、お返しは1ヶ月以内が一般的とされています。".to_string(),
             Intent::Unknown => self.conversation_handler.get_next_question(),

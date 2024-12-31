@@ -6,6 +6,9 @@ mod app {
     pub mod nlp {
         pub mod intent_classifier;
     }
+    pub mod gift {
+        pub mod recommendation;
+    }
 }
 
 use app::chat::chatbot::Chatbot;
