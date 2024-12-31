@@ -12,7 +12,7 @@ pub enum Intent {
     Unknown,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IntentClassifier {
     patterns: HashMap<Intent, Vec<String>>,
 }

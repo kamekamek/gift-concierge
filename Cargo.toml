@@ -3,6 +3,14 @@ name = "my-project"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "my_project"
+path = "src/lib.rs"
+
+[[bin]]
+name = "my-project"
+path = "src/main.rs"
+
 [dependencies]
 tokio = { version = "1.35.1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }

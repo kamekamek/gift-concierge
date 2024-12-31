@@ -16,7 +16,7 @@ pub struct UserContext {
     pub recipient_age: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Chatbot {
     contexts: Arc<Mutex<Vec<UserContext>>>,
     intent_classifier: IntentClassifier,
