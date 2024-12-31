@@ -2,10 +2,10 @@ use anyhow::Result;
 use tokio;
 use std::time::{Duration, Instant};
 use std::sync::Arc;
-use tokio::sync::Semaphore;
+use tokio::sync::{Semaphore, Mutex};
 use my_project::app::chat::chatbot::Chatbot;
 use my_project::app::database::user_record::UserDatabase;
-use my_project::app::database::gift_cache::GiftCache;
+use my_project::app::database::gift_cache::{GiftCache, CachedGift};
 use my_project::config::config::Config;
 
 const CONCURRENT_USERS: usize = 100;
@@ -21,6 +21,7 @@ async fn setup_load_test_environment() -> Result<(Chatbot, UserDatabase, GiftCac
     Ok((chatbot, user_db, gift_cache))
 }
 
+#[derive(Debug)]
 struct LoadTestMetrics {
     total_requests: usize,
     successful_requests: usize,
@@ -74,7 +75,7 @@ impl LoadTestMetrics {
 async fn simulate_user_conversation(
     chatbot: Chatbot,
     user_id: String,
-    metrics: Arc<tokio::sync::Mutex<LoadTestMetrics>>,
+    metrics: Arc<Mutex<LoadTestMetrics>>,
     rate_limiter: Arc<Semaphore>,
 ) -> Result<()> {
     let conversation_flow = vec![
@@ -92,8 +93,9 @@ async fn simulate_user_conversation(
         let result = chatbot.process_message(user_id.clone(), message.to_string()).await;
         let duration = start.elapsed();
 
-        let mut metrics = metrics.lock().await;
-        metrics.add_request(duration, result.is_ok());
+        let mut metrics_guard = metrics.lock().await;
+        metrics_guard.add_request(duration, result.is_ok());
+        drop(metrics_guard);
 
         if result.is_err() {
             println!("Error in conversation for user {}: {:?}", user_id, result);
@@ -108,7 +110,7 @@ async fn simulate_user_conversation(
 #[tokio::test]
 async fn test_concurrent_load() -> Result<()> {
     let (chatbot, _user_db, _gift_cache) = setup_load_test_environment().await?;
-    let metrics = Arc::new(tokio::sync::Mutex::new(LoadTestMetrics::new()));
+    let metrics = Arc::new(Mutex::new(LoadTestMetrics::new()));
     let rate_limiter = Arc::new(Semaphore::new(REQUESTS_PER_SECOND));
 
     let start = Instant::now();
@@ -133,24 +135,24 @@ async fn test_concurrent_load() -> Result<()> {
     }
 
     let duration = start.elapsed();
-    let metrics = metrics.lock().await;
+    let metrics_guard = metrics.lock().await;
 
     // 結果の検証
-    assert!(metrics.success_rate() >= 95.0, "Success rate below 95%");
+    assert!(metrics_guard.success_rate() >= 95.0, "Success rate below 95%");
     assert!(
-        metrics.average_response_time() < Duration::from_millis(500),
+        metrics_guard.average_response_time() < Duration::from_millis(500),
         "Average response time too high"
     );
     assert!(duration < Duration::from_secs(TEST_DURATION_SECS));
 
     println!("Load Test Results:");
-    println!("Total Requests: {}", metrics.total_requests);
-    println!("Successful Requests: {}", metrics.successful_requests);
-    println!("Failed Requests: {}", metrics.failed_requests);
-    println!("Success Rate: {:.2}%", metrics.success_rate());
-    println!("Min Response Time: {:?}", metrics.min_response_time);
-    println!("Max Response Time: {:?}", metrics.max_response_time);
-    println!("Average Response Time: {:?}", metrics.average_response_time());
+    println!("Total Requests: {}", metrics_guard.total_requests);
+    println!("Successful Requests: {}", metrics_guard.successful_requests);
+    println!("Failed Requests: {}", metrics_guard.failed_requests);
+    println!("Success Rate: {:.2}%", metrics_guard.success_rate());
+    println!("Min Response Time: {:?}", metrics_guard.min_response_time);
+    println!("Max Response Time: {:?}", metrics_guard.max_response_time);
+    println!("Average Response Time: {:?}", metrics_guard.average_response_time());
     println!("Total Test Duration: {:?}", duration);
 
     Ok(())
@@ -159,7 +161,7 @@ async fn test_concurrent_load() -> Result<()> {
 #[tokio::test]
 async fn test_sustained_load() -> Result<()> {
     let (chatbot, _user_db, _gift_cache) = setup_load_test_environment().await?;
-    let metrics = Arc::new(tokio::sync::Mutex::new(LoadTestMetrics::new()));
+    let metrics = Arc::new(Mutex::new(LoadTestMetrics::new()));
     let rate_limiter = Arc::new(Semaphore::new(REQUESTS_PER_SECOND));
 
     let test_duration = Duration::from_secs(TEST_DURATION_SECS);
@@ -184,23 +186,23 @@ async fn test_sustained_load() -> Result<()> {
         handle.await??;
     }
 
-    let metrics = metrics.lock().await;
+    let metrics_guard = metrics.lock().await;
 
     // 結果の検証
-    assert!(metrics.success_rate() >= 95.0, "Sustained load success rate below 95%");
+    assert!(metrics_guard.success_rate() >= 95.0, "Sustained load success rate below 95%");
     assert!(
-        metrics.average_response_time() < Duration::from_millis(500),
+        metrics_guard.average_response_time() < Duration::from_millis(500),
         "Sustained load average response time too high"
     );
 
     println!("Sustained Load Test Results:");
-    println!("Total Requests: {}", metrics.total_requests);
-    println!("Successful Requests: {}", metrics.successful_requests);
-    println!("Failed Requests: {}", metrics.failed_requests);
-    println!("Success Rate: {:.2}%", metrics.success_rate());
-    println!("Min Response Time: {:?}", metrics.min_response_time);
-    println!("Max Response Time: {:?}", metrics.max_response_time);
-    println!("Average Response Time: {:?}", metrics.average_response_time());
+    println!("Total Requests: {}", metrics_guard.total_requests);
+    println!("Successful Requests: {}", metrics_guard.successful_requests);
+    println!("Failed Requests: {}", metrics_guard.failed_requests);
+    println!("Success Rate: {:.2}%", metrics_guard.success_rate());
+    println!("Min Response Time: {:?}", metrics_guard.min_response_time);
+    println!("Max Response Time: {:?}", metrics_guard.max_response_time);
+    println!("Average Response Time: {:?}", metrics_guard.average_response_time());
 
     Ok(())
 }
@@ -208,11 +210,11 @@ async fn test_sustained_load() -> Result<()> {
 #[tokio::test]
 async fn test_cache_performance() -> Result<()> {
     let (_chatbot, _user_db, gift_cache) = setup_load_test_environment().await?;
-    let metrics = Arc::new(tokio::sync::Mutex::new(LoadTestMetrics::new()));
+    let metrics = Arc::new(Mutex::new(LoadTestMetrics::new()));
     let start = Instant::now();
 
     // キャッシュの準備
-    let test_gift = crate::app::database::gift_cache::CachedGift {
+    let test_gift = CachedGift {
         name: "テストギフト".to_string(),
         description: "テスト用のギフトです".to_string(),
         price: 10000,
@@ -234,16 +236,18 @@ async fn test_cache_performance() -> Result<()> {
             let result = gift_cache.add(key.clone(), test_gift).await;
             let duration = start.elapsed();
 
-            let mut metrics = metrics.lock().await;
-            metrics.add_request(duration, result.is_ok());
+            let mut metrics_guard = metrics.lock().await;
+            metrics_guard.add_request(duration, result.is_ok());
+            drop(metrics_guard);
 
             // キャッシュからの読み取り
             let start = Instant::now();
             let result = gift_cache.get(&key).await;
             let duration = start.elapsed();
 
-            metrics = metrics.lock().await;
-            metrics.add_request(duration, result.is_some());
+            let mut metrics_guard = metrics.lock().await;
+            metrics_guard.add_request(duration, result.is_some());
+            drop(metrics_guard);
         });
         handles.push(handle);
     }
@@ -253,23 +257,23 @@ async fn test_cache_performance() -> Result<()> {
     }
 
     let duration = start.elapsed();
-    let metrics = metrics.lock().await;
+    let metrics_guard = metrics.lock().await;
 
     // 結果の検証
-    assert!(metrics.success_rate() >= 99.0, "Cache operation success rate below 99%");
+    assert!(metrics_guard.success_rate() >= 99.0, "Cache operation success rate below 99%");
     assert!(
-        metrics.average_response_time() < Duration::from_micros(1000),
+        metrics_guard.average_response_time() < Duration::from_micros(1000),
         "Cache operation average response time too high"
     );
 
     println!("Cache Performance Test Results:");
-    println!("Total Operations: {}", metrics.total_requests);
-    println!("Successful Operations: {}", metrics.successful_requests);
-    println!("Failed Operations: {}", metrics.failed_requests);
-    println!("Success Rate: {:.2}%", metrics.success_rate());
-    println!("Min Response Time: {:?}", metrics.min_response_time);
-    println!("Max Response Time: {:?}", metrics.max_response_time);
-    println!("Average Response Time: {:?}", metrics.average_response_time());
+    println!("Total Operations: {}", metrics_guard.total_requests);
+    println!("Successful Operations: {}", metrics_guard.successful_requests);
+    println!("Failed Operations: {}", metrics_guard.failed_requests);
+    println!("Success Rate: {:.2}%", metrics_guard.success_rate());
+    println!("Min Response Time: {:?}", metrics_guard.min_response_time);
+    println!("Max Response Time: {:?}", metrics_guard.max_response_time);
+    println!("Average Response Time: {:?}", metrics_guard.average_response_time());
     println!("Total Test Duration: {:?}", duration);
 
     Ok(())

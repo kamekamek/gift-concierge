@@ -3,6 +3,7 @@ use std::time::{Duration, SystemTime};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CachedGift {
@@ -14,16 +15,16 @@ pub struct CachedGift {
     pub cached_at: SystemTime,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GiftCache {
-    cache: RwLock<HashMap<String, Vec<CachedGift>>>,
+    cache: Arc<RwLock<HashMap<String, Vec<CachedGift>>>>,
     ttl: Duration,
 }
 
 impl GiftCache {
     pub fn new(ttl_seconds: u64) -> Self {
         Self {
-            cache: RwLock::new(HashMap::new()),
+            cache: Arc::new(RwLock::new(HashMap::new())),
             ttl: Duration::from_secs(ttl_seconds),
         }
     }

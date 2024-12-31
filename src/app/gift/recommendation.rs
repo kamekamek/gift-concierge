@@ -2,6 +2,7 @@ use anyhow::Result;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GiftRecommendation {
@@ -12,14 +13,21 @@ pub struct GiftRecommendation {
     pub url: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RecommendationEngine {
-    client: Client,
+    client: Arc<Client>,
     gift_database: HashMap<String, Vec<GiftRecommendation>>,
 }
 
 impl RecommendationEngine {
     pub fn new() -> Self {
+        Self {
+            client: Arc::new(Client::new()),
+            gift_database: Self::initialize_database(),
+        }
+    }
+
+    fn initialize_database() -> HashMap<String, Vec<GiftRecommendation>> {
         let mut gift_database = HashMap::new();
         
         // 上司・先輩向けギフト
@@ -76,10 +84,7 @@ impl RecommendationEngine {
             },
         ]);
 
-        Self {
-            client: Client::new(),
-            gift_database,
-        }
+        gift_database
     }
 
     pub async fn get_recommendations(
