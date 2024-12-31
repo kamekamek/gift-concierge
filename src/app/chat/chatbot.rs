@@ -30,6 +30,30 @@ pub struct Chatbot {
     intent_classifier: IntentClassifier,
 }
 
+impl UserContext {
+    pub fn new() -> Self {
+        Self {
+            relationship: None,
+            gift_amount: None,
+            gift_type: None,
+            gender: None,
+            age_range: None,
+        }
+    }
+
+    pub fn is_complete(&self) -> bool {
+        self.relationship.is_some() && self.gift_amount.is_some() && self.gift_type.is_some()
+    }
+
+    pub fn reset(&mut self) {
+        self.relationship = None;
+        self.gift_amount = None;
+        self.gift_type = None;
+        self.gender = None;
+        self.age_range = None;
+    }
+}
+
 impl Chatbot {
     pub fn new() -> Self {
         Self {
@@ -119,7 +143,33 @@ impl Chatbot {
         Ok("ありがとうございます。最適なギフトを検索します。".to_string())
     }
 
+    pub fn reset_conversation(&mut self) {
+        self.context.reset();
+        self.state = ConversationState::Initial;
+    }
+
+    pub fn get_context(&self) -> &UserContext {
+        &self.context
+    }
+
+    fn validate_context(&self) -> Result<()> {
+        if !self.context.is_complete() {
+            return Err(ChatError::InvalidInput("必要な情報が不足しています".to_string()));
+        }
+        Ok(())
+    }
+
     async fn generate_recommendations(&self) -> Result<String> {
-        Ok("おすすめのギフトが見つかりました。".to_string())
+        self.validate_context()?;
+        
+        let relationship = self.context.relationship.as_ref()
+            .ok_or_else(|| ChatError::InternalError("関係性が未設定です".to_string()))?;
+            
+        let (min_amount, max_amount) = self.context.gift_amount
+            .ok_or_else(|| ChatError::InternalError("金額が未設定です".to_string()))?;
+
+        // TODO: ギフト推薦システムとの連携
+        Ok(format!("{}への{}〜{}円のお返しとして、以下のギフトがおすすめです。", 
+            relationship, min_amount, max_amount))
     }
 }
