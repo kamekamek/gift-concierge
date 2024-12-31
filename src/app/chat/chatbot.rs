@@ -4,7 +4,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use crate::app::nlp::intent_classifier::{Intent, IntentClassifier};
 use crate::app::chat::conversation_handler::ConversationHandler;
-use crate::app::gift::recommendation::{GiftRecommendation, RecommendationEngine};
+use crate::app::gift::recommendation::RecommendationEngine;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserContext {
@@ -20,7 +20,7 @@ pub struct UserContext {
 pub struct Chatbot {
     contexts: Arc<Mutex<Vec<UserContext>>>,
     intent_classifier: IntentClassifier,
-    conversation_handler: ConversationHandler,
+    conversation_handler: Arc<Mutex<ConversationHandler>>,
     recommendation_engine: RecommendationEngine,
 }
 
@@ -29,31 +29,40 @@ impl Chatbot {
         Self {
             contexts: Arc::new(Mutex::new(Vec::new())),
             intent_classifier: IntentClassifier::new(),
-            conversation_handler: ConversationHandler::new(),
+            conversation_handler: Arc::new(Mutex::new(ConversationHandler::new())),
             recommendation_engine: RecommendationEngine::new(),
         }
     }
 
-    pub async fn process_message(&self, user_id: String, message: String) -> Result<String> {
+    async fn get_or_create_context(&self, user_id: &str) -> UserContext {
         let mut contexts = self.contexts.lock().await;
-        
-        // ユーザーコンテキストの取得または作成
-        let context = contexts
-            .iter_mut()
-            .find(|c| c.user_id == user_id)
-            .unwrap_or_else(|| {
-                let new_context = UserContext {
-                    user_id: user_id.clone(),
-                    relationship: None,
-                    budget: None,
-                    is_bulk_gift: None,
-                    recipient_gender: None,
-                    recipient_age: None,
-                };
-                contexts.push(new_context);
-                contexts.last_mut().unwrap()
-            });
+        if let Some(context) = contexts.iter().find(|c| c.user_id == user_id) {
+            context.clone()
+        } else {
+            let new_context = UserContext {
+                user_id: user_id.to_string(),
+                relationship: None,
+                budget: None,
+                is_bulk_gift: None,
+                recipient_gender: None,
+                recipient_age: None,
+            };
+            contexts.push(new_context.clone());
+            new_context
+        }
+    }
 
+    async fn update_context(&self, context: UserContext) {
+        let mut contexts = self.contexts.lock().await;
+        if let Some(existing_context) = contexts.iter_mut().find(|c| c.user_id == context.user_id) {
+            *existing_context = context;
+        }
+    }
+
+    pub async fn process_message(&self, user_id: String, message: String) -> Result<String> {
+        let mut context = self.get_or_create_context(&user_id).await;
+        let mut conversation_handler = self.conversation_handler.lock().await;
+        
         // 意図の分類
         let intent = self.intent_classifier.classify(&message);
         
@@ -63,8 +72,8 @@ impl Chatbot {
             Intent::AskRelationship => {
                 if let Some(relationship) = self.extract_relationship(&message) {
                     context.relationship = Some(relationship);
-                    self.conversation_handler.transition();
-                    self.conversation_handler.get_next_question()
+                    conversation_handler.transition();
+                    conversation_handler.get_next_question()
                 } else {
                     "申し訳ありません。関係性をもう一度お聞かせいただけますか？".to_string()
                 }
@@ -72,16 +81,16 @@ impl Chatbot {
             Intent::AskBudget => {
                 if let Some(budget) = self.extract_budget(&message) {
                     context.budget = Some(budget);
-                    self.conversation_handler.transition();
-                    self.conversation_handler.get_next_question()
+                    conversation_handler.transition();
+                    conversation_handler.get_next_question()
                 } else {
                     "申し訳ありません。金額をもう一度お聞かせいただけますか？".to_string()
                 }
             }
             Intent::AskBulkGift => {
                 context.is_bulk_gift = Some(message.contains("同じ"));
-                self.conversation_handler.transition();
-                self.conversation_handler.get_next_question()
+                conversation_handler.transition();
+                conversation_handler.get_next_question()
             }
             Intent::AskGender => {
                 context.recipient_gender = Some(if message.contains("男性") {
@@ -91,12 +100,12 @@ impl Chatbot {
                 } else {
                     "unknown".to_string()
                 });
-                self.conversation_handler.transition();
-                self.conversation_handler.get_next_question()
+                conversation_handler.transition();
+                conversation_handler.get_next_question()
             }
             Intent::AskAge => {
                 context.recipient_age = Some(message.to_string());
-                self.conversation_handler.transition();
+                conversation_handler.transition();
                 
                 // 必要な情報が揃った場合、ギフトを推薦
                 if let (Some(relationship), Some(budget)) = (context.relationship.as_ref(), context.budget) {
@@ -122,13 +131,14 @@ impl Chatbot {
                     }
                     response
                 } else {
-                    self.conversation_handler.get_next_question()
+                    conversation_handler.get_next_question()
                 }
             }
             Intent::AskManners => "のし紙には「御祝」と記載し、お返しは1ヶ月以内が一般的とされています。".to_string(),
-            Intent::Unknown => self.conversation_handler.get_next_question(),
+            Intent::Unknown => conversation_handler.get_next_question(),
         };
 
+        self.update_context(context).await;
         Ok(response)
     }
 
