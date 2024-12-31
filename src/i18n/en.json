@@ -1,0 +1,63 @@
+{
+    "greeting": {
+        "welcome": "Let me help you choose the perfect gift.",
+        "help": "I'll suggest the most suitable gifts based on your answers to the following questions.",
+        "restart": "If you'd like to start over, please say 'restart'."
+    },
+    "questions": {
+        "relationship": {
+            "ask": "First, what is your relationship with the gift recipient?",
+            "examples": "Example: boss, senior colleague, friend, relative, etc.",
+            "clarify": "I'm sorry, could you please tell me your relationship with the recipient again?"
+        },
+        "budget": {
+            "ask": "What is your budget for the gift?",
+            "examples": "Example: 30,000 yen, 5,000 yen, etc.",
+            "clarify": "I'm sorry, could you please specify the budget again?"
+        },
+        "bulk_gift": {
+            "ask": "Are you looking for gifts for multiple people or just one person?",
+            "examples": "Example: 3 people together, just one person",
+            "clarify": "I'm sorry, could you please clarify the number of recipients again?"
+        },
+        "gender": {
+            "ask": "What is the gender of the recipient?",
+            "examples": "Example: male, female",
+            "clarify": "I'm sorry, could you please specify the gender again?"
+        },
+        "age": {
+            "ask": "What is the age group of the recipient?",
+            "examples": "Example: 20s, 30s, 40s, etc.",
+            "clarify": "I'm sorry, could you please specify the age group again?"
+        }
+    },
+    "recommendations": {
+        "intro": "Thank you. Based on this information, I'll suggest the most suitable gifts.",
+        "list_intro": "Here are my recommendations:",
+        "price": "Price: ¥{price}",
+        "bulk_discount": "Bulk purchase discount applied: ¥{price}",
+        "no_results": "I'm sorry, but I couldn't find any gifts matching your criteria. Please try again with different conditions."
+    },
+    "manners": {
+        "wrapping": "About gift wrapping:",
+        "noshi": "It is customary to write 'Congratulations' on the noshi paper.",
+        "timing": "It is recommended to send a return gift within one month.",
+        "budget": "The return gift's value is typically about half of the received gift's value."
+    },
+    "errors": {
+        "invalid_input": "I'm sorry, but I couldn't understand your input.",
+        "system_error": "I'm sorry, but a system error has occurred. Please try again later.",
+        "timeout": "I'm sorry, but the response timed out. Please try again."
+    },
+    "navigation": {
+        "back": "Go back to previous question",
+        "restart": "Start over",
+        "help": "Help",
+        "exit": "Exit"
+    },
+    "confirmation": {
+        "save": "Would you like to save these settings?",
+        "cancel": "Would you like to cancel?",
+        "proceed": "Would you like to proceed with these settings?"
+    }
+} 
