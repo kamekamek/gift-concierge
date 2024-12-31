@@ -7,9 +7,10 @@ pub struct IntentClassifier {
 impl IntentClassifier {
     pub fn new() -> Self {
         let mut patterns = HashMap::new();
-        patterns.insert("relationship".to_string(), vec!["上司", "先輩", "友人", "親戚"]);
-        patterns.insert("amount".to_string(), vec!["1万円", "3万円", "5万円"]);
-        patterns.insert("individual".to_string(), vec!["個別", "全員同じ"]);
+        patterns.insert(
+            "relationship".to_string(),
+            vec!["上司".to_string(), "先輩".to_string(), "友人".to_string(), "親戚".to_string()]
+        );
         Self { patterns }
     }
 

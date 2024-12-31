@@ -1,8 +1,9 @@
 use reqwest;
 use serde_json;
+use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Deserialize)]
-struct PerplexityResponse {
+pub struct PerplexityResponse {
     results: Vec<PerplexityResult>,
 }
 
@@ -15,7 +16,7 @@ struct PerplexityResult {
 
 
 #[derive(Debug)]
-struct GiftRecommendation {
+pub struct GiftRecommendation {
     name: String,
     url: String,
     image_url: Option<String>,

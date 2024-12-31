@@ -1,8 +1,18 @@
+use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
 lazy_static! {
     static ref GIFT_CACHE: Mutex<HashMap<String, Vec<GiftInfo>>> = Mutex::new(HashMap::new());
+}
+
+#[derive(Debug, Clone)]
+pub struct GiftCache;
+
+impl GiftCache {
+    pub fn new() -> Self {
+        Self
+    }
 }
 
 #[derive(Debug, Clone)]

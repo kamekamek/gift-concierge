@@ -1,4 +1,4 @@
-use crate::app::error::Result;
+use crate::app::error::{ChatError, Result};
 use crate::app::nlp::IntentClassifier;
 use std::collections::HashMap;
 

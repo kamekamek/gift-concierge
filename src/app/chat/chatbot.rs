@@ -79,5 +79,47 @@ impl Chatbot {
         Ok("就職祝いのお返しについて、お手伝いさせていただきます。まず、お祝いをくれた方との関係性を教えてください。".to_string())
     }
 
-    // 他のハンドラメソッドも同様に実装...
+    fn handle_relationship(&mut self, input: &str) -> Result<String> {
+        self.context.relationship = Some(input.to_string());
+        self.state = ConversationState::AskGiftAmount;
+        Ok("ありがとうございます。お祝いの金額の範囲を教えてください（例：1〜3万円）。".to_string())
+    }
+
+    fn handle_gift_amount(&mut self, input: &str) -> Result<String> {
+        // 金額のパース処理
+        let amounts: Vec<u32> = input.split('〜')
+            .filter_map(|s| s.trim().replace("万円", "0000").parse().ok())
+            .collect();
+        
+        self.context.gift_amount = match amounts.len() {
+            2 => Some((amounts[0], amounts[1])),
+            1 => Some((amounts[0], amounts[0])),
+            _ => return Err(ChatError::InvalidInput("無効な金額形式です".to_string()))
+        };
+
+        self.state = ConversationState::AskGiftType;
+        Ok("複数の方にお返しをする場合、全員同じものか、個別に選びますか？".to_string())
+    }
+
+    fn handle_gift_type(&mut self, input: &str) -> Result<String> {
+        self.context.gift_type = Some(input.to_string());
+        self.state = ConversationState::AskGender;
+        Ok("相手の性別を教えてください（任意）。".to_string())
+    }
+
+    fn handle_gender(&mut self, input: &str) -> Result<String> {
+        self.context.gender = Some(input.to_string());
+        self.state = ConversationState::AskAgeRange;
+        Ok("相手の年代をおおよそで教えてください（任意）。".to_string())
+    }
+
+    fn handle_age_range(&mut self, input: &str) -> Result<String> {
+        self.context.age_range = Some(input.to_string());
+        self.state = ConversationState::GiftRecommendation;
+        Ok("ありがとうございます。最適なギフトを検索します。".to_string())
+    }
+
+    async fn generate_recommendations(&self) -> Result<String> {
+        Ok("おすすめのギフトが見つかりました。".to_string())
+    }
 }
