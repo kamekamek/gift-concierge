@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug)]
 pub enum ConversationState {
     Initial,
     AskingRelationship,
@@ -8,32 +8,20 @@ pub enum ConversationState {
     AskingBulkGift,
     AskingGender,
     AskingAge,
-    Recommending,
     Complete,
 }
 
 #[derive(Debug)]
 pub struct ConversationHandler {
     state: ConversationState,
+    step_counter: AtomicUsize,
 }
 
 impl ConversationHandler {
     pub fn new() -> Self {
         Self {
             state: ConversationState::Initial,
-        }
-    }
-
-    pub fn get_next_question(&self) -> String {
-        match self.state {
-            ConversationState::Initial => "お返しについて相談させていただきます。まず、お祝いをくださった方との関係を教えていただけますか？（例：上司、先輩、友人、親戚など）".to_string(),
-            ConversationState::AskingRelationship => "ありがとうございます。お祝いの金額はおいくらでしたか？".to_string(),
-            ConversationState::AskingBudget => "複数の方へのお返しの場合、全員同じものにしますか？それとも個別に選びますか？".to_string(),
-            ConversationState::AskingBulkGift => "差し支えなければ、お相手の性別を教えていただけますか？".to_string(),
-            ConversationState::AskingGender => "最後に、お相手の年代を教えていただけますか？".to_string(),
-            ConversationState::AskingAge => "ありがとうございます。それでは、最適なお返しを提案させていただきます。".to_string(),
-            ConversationState::Recommending => "お返しの候補をご提案いたしました。他にご要望はございますか？".to_string(),
-            ConversationState::Complete => "ご利用ありがとうございました。また何かございましたらお気軽にご相談ください。".to_string(),
+            step_counter: AtomicUsize::new(0),
         }
     }
 
@@ -44,10 +32,50 @@ impl ConversationHandler {
             ConversationState::AskingBudget => ConversationState::AskingBulkGift,
             ConversationState::AskingBulkGift => ConversationState::AskingGender,
             ConversationState::AskingGender => ConversationState::AskingAge,
-            ConversationState::AskingAge => ConversationState::Recommending,
-            ConversationState::Recommending => ConversationState::Complete,
-            ConversationState::Complete => ConversationState::Initial,
+            ConversationState::AskingAge => ConversationState::Complete,
+            ConversationState::Complete => ConversationState::Complete,
         };
+        self.step_counter.fetch_add(1, Ordering::SeqCst);
+    }
+
+    pub fn get_next_question(&self) -> String {
+        match self.state {
+            ConversationState::Initial => {
+                "ギフト選びのお手伝いをさせていただきます。まず、贈り主様との関係を教えていただけますか？\n\
+                 例：上司、先輩、友人、親戚など".to_string()
+            }
+            ConversationState::AskingRelationship => {
+                "ご予算はどのくらいをお考えでしょうか？\n\
+                 例：3万円、5000円など".to_string()
+            }
+            ConversationState::AskingBudget => {
+                "複数の方へのギフトをお探しでしょうか？それとも1名様分でしょうか？\n\
+                 例：3人分まとめて、1人分".to_string()
+            }
+            ConversationState::AskingBulkGift => {
+                "受け取られる方の性別を教えていただけますか？\n\
+                 例：男性、女性".to_string()
+            }
+            ConversationState::AskingGender => {
+                "受け取られる方の年齢層を教えていただけますか？\n\
+                 例：20代、30代、40代など".to_string()
+            }
+            ConversationState::AskingAge => {
+                "ありがとうございます。これらの情報を基に、最適なギフトをご提案させていただきます。".to_string()
+            }
+            ConversationState::Complete => {
+                "他にご要望やご質問はございますか？\n\
+                 例：のし紙の書き方、マナーについてなど".to_string()
+            }
+        }
+    }
+
+    pub fn get_current_state(&self) -> &ConversationState {
+        &self.state
+    }
+
+    pub fn get_step_count(&self) -> usize {
+        self.step_counter.load(Ordering::SeqCst)
     }
 }
 
@@ -58,12 +86,42 @@ mod tests {
     #[test]
     fn test_conversation_flow() {
         let mut handler = ConversationHandler::new();
+        
+        // 初期状態
+        assert!(matches!(handler.get_current_state(), ConversationState::Initial));
         assert!(handler.get_next_question().contains("関係"));
         
+        // 関係性の質問へ
         handler.transition();
-        assert!(handler.get_next_question().contains("金額"));
+        assert!(matches!(handler.get_current_state(), ConversationState::AskingRelationship));
+        assert!(handler.get_next_question().contains("予算"));
         
+        // 予算の質問へ
         handler.transition();
-        assert!(handler.get_next_question().contains("全員同じ"));
+        assert!(matches!(handler.get_current_state(), ConversationState::AskingBudget));
+        assert!(handler.get_next_question().contains("複数"));
+        
+        // まとめ買いの質問へ
+        handler.transition();
+        assert!(matches!(handler.get_current_state(), ConversationState::AskingBulkGift));
+        assert!(handler.get_next_question().contains("性別"));
+        
+        // 性別の質問へ
+        handler.transition();
+        assert!(matches!(handler.get_current_state(), ConversationState::AskingGender));
+        assert!(handler.get_next_question().contains("年齢"));
+        
+        // 年齢の質問へ
+        handler.transition();
+        assert!(matches!(handler.get_current_state(), ConversationState::AskingAge));
+        assert!(handler.get_next_question().contains("ありがとうございます"));
+        
+        // 完了状態へ
+        handler.transition();
+        assert!(matches!(handler.get_current_state(), ConversationState::Complete));
+        assert!(handler.get_next_question().contains("他に"));
+        
+        // ステップカウントの確認
+        assert_eq!(handler.get_step_count(), 6);
     }
 } 
