@@ -1,0 +1,78 @@
+{
+  "app": {
+    "title": "Return Gift Concierge Bot",
+    "description": "AI-powered gift recommendation service",
+    "common": {
+      "buttons": {
+        "submit": "Submit",
+        "cancel": "Cancel",
+        "back": "Back",
+        "next": "Next",
+        "search": "Search"
+      },
+      "labels": {
+        "name": "Name",
+        "email": "Email",
+        "phone": "Phone"
+      },
+      "errors": {
+        "required": "This field is required",
+        "invalid_email": "Please enter a valid email address",
+        "invalid_phone": "Please enter a valid phone number"
+      }
+    },
+    "chat": {
+      "welcome": "Welcome to Return Gift Concierge! I'll help you find the perfect return gift.",
+      "questions": {
+        "relationship": "What is your relationship with the person who gave you the gift?",
+        "gift_amount": "What was the amount of the congratulatory gift you received?",
+        "gift_type": "Would you like to give the same gift to everyone or choose individually?",
+        "gender": "What is their gender? (Optional)",
+        "age": "What is their approximate age? (Optional)"
+      },
+      "options": {
+        "relationships": {
+          "boss": "Boss",
+          "senior": "Senior",
+          "friend": "Friend",
+          "relative": "Relative"
+        },
+        "gift_types": {
+          "same": "Same gift for everyone",
+          "individual": "Individual gifts"
+        },
+        "gender": {
+          "male": "Male",
+          "female": "Female",
+          "other": "Other",
+          "prefer_not_to_say": "Prefer not to say"
+        }
+      }
+    },
+    "recommendations": {
+      "loading": "Searching for perfect gift recommendations...",
+      "success": "Here are my recommendations for you:",
+      "no_results": "No recommendations found. Please try different criteria.",
+      "item": {
+        "price": "Price",
+        "description": "Description",
+        "features": "Features",
+        "why_recommended": "Why we recommend this"
+      }
+    },
+    "etiquette": {
+      "timing": {
+        "title": "When should I give the return gift?",
+        "content": "It's best to give the return gift within 1-2 months of receiving the congratulatory gift."
+      },
+      "wrapping": {
+        "title": "How should I wrap the gift?",
+        "content": "Use formal gift wrapping with a noshi (ceremonial paper)"
+      },
+      "amount": {
+        "title": "What is the appropriate amount?",
+        "content": "Generally, the return gift should be about half the value of the received gift."
+      }
+    }
+  }
+}

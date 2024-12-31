@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ongaeshi-concierge-bot
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ongaeshi-concierge-bot
+  template:
+    metadata:
+      labels:
+        app: ongaeshi-concierge-bot
+    spec:
+      containers:
+      - name: ongaeshi-concierge-bot
+        image: ongaeshi-concierge-bot:latest # Dockerfileでビルドしたイメージ名
+        ports:
+        - containerPort: 8080 # アプリケーションのポート
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi;

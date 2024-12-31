@@ -1,0 +1,316 @@
+src:
+  structure.yaml:
+    content: |-
+      お返しコンシェルジュBOTのプロジェクト構造
+      - AIチャットボットを通じて就職祝いのお返しを提案
+      - LINEまたはWebアプリケーション
+      - Perplexity APIを活用したギフト検索
+      - バックエンドはRustで実装
+    dependency: []
+    agent: "claude-3-5-sonnet-20241022"
+    api: ["perplexity-api"]
+
+  app:
+    main.rs:
+      content: |-
+        メインアプリケーション (Rust)
+        - AIチャットボットのエントリーポイント
+        - ユーザーインタラクションの制御
+        - APIルーティング管理
+      dependency:
+        - src/app/chat/chatbot.rs
+        - src/app/gift/recommendation.rs
+        - src/app/database/user_record.rs
+      agent: "o1-preview-2024-09-12"
+      api: []
+
+    chat:
+      chatbot.rs:
+        content: |-
+          AIチャットボット実装 (Rust)
+          - 自然言語処理
+          - ヒアリング項目の管理
+          - 会話フロー制御
+        dependency:
+          - src/app/nlp/conversation_handler.rs
+          - src/app/gift/recommendation.rs
+        agent: "gemini-1.5-pro"
+        api: ["perplexity-api"]
+
+      conversation_handler.rs:
+        content: |-
+          会話ハンドリング (Rust)
+          - ユーザー入力解析
+          - 質問・応答パターン管理
+          - マナー質問対応
+        dependency:
+          - src/app/nlp/intent_classifier.rs
+        agent: "claude-3-5-sonnet-20241022"
+        api: []
+
+    gift:
+      recommendation.rs:
+        content: |-
+          ギフト推薦システム (Rust)
+          - Perplexity APIを使用した商品検索
+          - 絞り込み基準の実装
+          - 3つのギフト提案生成
+        dependency:
+          - src/app/database/gift_cache.rs
+        agent: "gemini-1.5-flash"
+        api: ["perplexity-api"]
+
+    database:
+      user_record.rs:
+        content: |-
+          ユーザー記録管理 (Rust)
+          - お返し記録の保存
+          - 個人情報の安全な格納
+          - データベース操作
+        dependency: []
+        agent: "claude-3-haiku-20240307"
+        api: []
+
+      gift_cache.rs:
+        content: |-
+          ギフト情報キャッシュ (Rust)
+          - 検索結果の一時保存
+          - パフォーマンス最適化
+          - 重複検索の防止
+        dependency: []
+        agent: "gpt-4o-mini"
+        api: []
+
+    nlp:
+      intent_classifier.rs:
+        content: |-
+          意図分類モジュール (Rust)
+          - ユーザー入力の意図解析
+          - 関係性、金額、個別/全体判定
+          - 自然言語理解
+        dependency: []
+        agent: "gemini-pro"
+        api: []
+
+  config:
+    .env:
+      content: |-
+        環境変数設定
+        - APIキー
+        - データベース接続情報
+        - セキュリティ設定
+      dependency: []
+      agent: "claude-3-5-sonnet-20241022"
+      api: []
+
+    .env.development:
+      content: |-
+        開発環境用環境変数
+        - 開発用APIキー
+        - 開発用データベース接続情報
+      dependency:
+        - src/config/.env
+      agent: "claude-3-5-sonnet-20241022"
+      api: []
+
+    .env.staging:
+      content: |-
+        ステージング環境用環境変数
+        - ステージング用APIキー
+        - ステージング用データベース接続情報
+      dependency:
+        - src/config/.env
+      agent: "claude-3-5-sonnet-20241022"
+      api: []
+
+    .env.production:
+      content: |-
+        本番環境用環境変数
+        - 本番用APIキー
+        - 本番用データベース接続情報
+      dependency:
+        - src/config/.env
+      agent: "claude-3-5-sonnet-20241022"
+      api: []
+
+  docker:
+    Dockerfile:
+      content: |-
+        Docker設定
+        - Rustアプリケーションのビルド
+        - 実行環境の構築
+      dependency: []
+      agent: "gemini-exp-1121"
+      api: []
+
+    docker-compose.yaml:
+      content: |-
+        Docker Compose設定
+        - アプリケーションとデータベースの連携
+        - 開発環境の構築
+      dependency:
+        - src/docker/Dockerfile
+      agent: "gemini-exp-1114"
+      api: []
+
+  kubernetes:
+    deployment.yaml:
+      content: |-
+        Kubernetesデプロイメント設定
+        - アプリケーションのデプロイ
+        - スケーリング設定
+      dependency:
+        - src/docker/Dockerfile
+      agent: "gemini-1.5-flash"
+      api: []
+
+    service.yaml:
+      content: |-
+        Kubernetesサービス設定
+        - アプリケーションへのアクセス設定
+        - ロードバランシング
+      dependency:
+        - src/kubernetes/deployment.yaml
+      agent: "gemini-1.5-flash"
+      api: []
+
+  i18n:
+    en.json:
+      content: |-
+        英語リソース
+        - アプリケーションのテキスト
+        - メッセージ
+      dependency: []
+      agent: "claude-3-5-sonnet-20241022"
+      api: []
+
+    ja.json:
+      content: |-
+        日本語リソース
+        - アプリケーションのテキスト
+        - メッセージ
+      dependency: []
+      agent: "claude-3-5-sonnet-20241022"
+      api: []
+
+  test:
+    main_test.rs:
+      content: |-
+        メインアプリケーションのテスト
+        - 各機能のユニットテスト
+        - 統合テスト
+      dependency:
+        - src/app/main.rs
+      agent: "gpt-4o"
+      api: []
+
+    chat_test.rs:
+      content: |-
+        チャットボットのテスト
+        - 会話フローのテスト
+        - 意図分類のテスト
+      dependency:
+        - src/app/chat/chatbot.rs
+      agent: "gpt-4o"
+      api: []
+
+    gift_test.rs:
+      content: |-
+        ギフト推薦システムのテスト
+        - 検索結果のテスト
+        - 絞り込み基準のテスト
+      dependency:
+        - src/app/gift/recommendation.rs
+      agent: "gpt-4o"
+      api: []
+
+  docs:
+    README.md:
+      content: |-
+        プロジェクト概要
+        - プロダクト名: お返しコンシェルジュBOT
+        - 目的: 就職祝いのお返しに悩むユーザーに、AIチャットボットを通じて最適なギフトを提案する。
+        - ターゲット: 就職祝いを受け取った新社会人
+        - 機能要件:
+          - 会話機能:
+            - AIチャットボット: ユーザーと自然な会話形式でやり取りを行う。
+            - ヒアリング項目:
+              - 必須:
+                - 関係性: お祝いをくれた相手との関係性（例: 上司、先輩、友人、親戚）
+                - 金額: お祝いの金額（範囲回答可 例: 1〜3万円）
+                - 個別or全員同じ: 複数人へのお返しの場合、全員同じか、個別に選ぶか。
+              - 任意:
+                - 性別: 相手の性別
+                - 年代: 相手の年代（おおよそ）
+            - マナー質問対応: 贈る時期、熨斗、金額相場など
+          - ギフト提案機能:
+            - 情報検索:
+              - Perplexity API活用: 収集した情報 + "就職祝い お返し [関係性] [金額]"で商品情報検索
+            - 提案数: 3つ
+            - 絞り込み基準:
+              - 関連性: クエリとの関連性が高い
+              - 信頼性: 信頼できる情報源
+              - 価格帯: ユーザー指定予算に合致
+              - 新規性: 最新トレンドや人気商品
+              - 独自性: 差別化ポイントを持つものを優先
+            - 提案内容:
+              - 商品名
+              - 商品画像: (Perplexity APIで取得できない場合、汎用的なギフト
+      dependency: []
+      agent: "claude-3-5-sonnet-20241022"
+      api: []
+
+    implementation:
+      00_overview.md:
+        content: |-
+          プロジェクト概要とアーキテクチャの説明
+          - システム構成
+          - 主要コンポーネント
+          - 技術スタック
+        dependency: []
+        agent: "claude-3-5-sonnet-20241022"
+        api: []
+
+      01_setup.md:
+        content: |-
+          開発環境のセットアップ手順
+          - 必要なツールのインストール
+          - 環境変数の設定
+          - データベースの準備
+        dependency:
+          - src/docs/implementation/00_overview.md
+        agent: "claude-3-5-sonnet-20241022"
+        api: []
+
+      02_core_components.md:
+        content: |-
+          コアコンポーネントの実装手順
+          - チャットボットの実装
+          - ギフト推薦システムの実装
+          - データベース管理の実装
+        dependency:
+          - src/docs/implementation/01_setup.md
+        agent: "claude-3-5-sonnet-20241022"
+        api: []
+
+      03_testing.md:
+        content: |-
+          テスト実装ガイド
+          - ユニットテスト
+          - 統合テスト
+          - エンドツーエンドテスト
+        dependency:
+          - src/docs/implementation/02_core_components.md
+        agent: "claude-3-5-sonnet-20241022"
+        api: []
+
+      04_deployment.md:
+        content: |-
+          デプロイメントガイド
+          - コンテナ化
+          - Kubernetes設定
+          - 監視とロギング
+        dependency:
+          - src/docs/implementation/03_testing.md
+        agent: "claude-3-5-sonnet-20241022"
+        api: []
