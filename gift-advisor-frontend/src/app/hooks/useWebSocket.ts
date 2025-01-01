@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import useWebSocket from 'react-use-websocket';
+import useWebSocket, { ReadyState } from 'react-use-websocket';
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001/ws';
 
@@ -11,11 +11,11 @@ export function useChatWebSocket() {
   });
 
   const connectionStatus = {
-    [useWebSocket.ReadyState.CONNECTING]: '接続中...',
-    [useWebSocket.ReadyState.OPEN]: '接続済み',
-    [useWebSocket.ReadyState.CLOSING]: '切断中...',
-    [useWebSocket.ReadyState.CLOSED]: '切断',
-    [useWebSocket.ReadyState.UNINSTANTIATED]: '未接続',
+    [ReadyState.CONNECTING]: '接続中...',
+    [ReadyState.OPEN]: '接続済み',
+    [ReadyState.CLOSING]: '切断中...',
+    [ReadyState.CLOSED]: '切断',
+    [ReadyState.UNINSTANTIATED]: '未接続',
   }[readyState];
 
   useEffect(() => {
