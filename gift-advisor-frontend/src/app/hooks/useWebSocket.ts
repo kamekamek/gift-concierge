@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef } from 'react';
-import useWebSocket, { ReadyState } from 'react-use-websocket';
+import { useWebSocket as useWebSocketBase, ReadyState } from 'react-use-websocket';
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3000/ws';
 
 export function useWebSocket() {
-  const { sendMessage, lastMessage, readyState } = useWebSocket(WS_URL, {
+  const { sendMessage, lastMessage, readyState } = useWebSocketBase(WS_URL, {
     shouldReconnect: (closeEvent) => true,
     reconnectAttempts: 10,
     reconnectInterval: 3000,
