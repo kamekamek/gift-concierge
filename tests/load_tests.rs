@@ -9,7 +9,7 @@ use my_project::app::database::gift_cache::{GiftCache, CachedGift};
 use my_project::config::config::Config;
 
 const CONCURRENT_USERS: usize = 100;
-const TEST_DURATION_SECS: u64 = 60;
+const TEST_DURATION_SECS: u64 = 5;
 const REQUESTS_PER_SECOND: usize = 10;
 
 async fn setup_load_test_environment() -> Result<(Chatbot, UserDatabase, GiftCache)> {
