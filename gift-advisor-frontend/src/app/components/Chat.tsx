@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useWebSocket } from '../hooks/useWebSocket';
+import { useChatWebSocket } from '../hooks/useWebSocket';
 
 interface Message {
   user_id: string;
@@ -11,7 +11,7 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { sendMessage, lastMessage, readyState } = useWebSocket();
+  const { sendMessage, lastMessage, readyState } = useChatWebSocket();
 
   useEffect(() => {
     if (lastMessage) {
