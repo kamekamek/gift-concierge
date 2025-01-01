@@ -1,48 +1,31 @@
-mod app {
-    pub mod chat {
-        pub mod chatbot;
-        pub mod conversation_handler;
-    }
-    pub mod nlp {
-        pub mod intent_classifier;
-    }
-    pub mod gift {
-        pub mod recommendation;
-    }
-}
+mod app;
+mod api;
 
-use app::chat::chatbot::Chatbot;
-use anyhow::Result;
-use std::io::{self, Write};
+use std::net::SocketAddr;
+use tower_http::cors::{CorsLayer, Any};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // ロギングの初期化
+async fn main() {
+    // ロガーの初期化
     tracing_subscriber::fmt::init();
 
-    // チャットボットの初期化
-    let chatbot = Chatbot::new();
+    // CORSの設定
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
 
-    println!("Bot: こんにちは！お返しの相談を承ります。");
-    
-    loop {
-        print!("You: ");
-        io::stdout().flush()?;  // プロンプトを即座に表示
+    // アプリケーションの構築
+    let app = api::create_router()
+        .layer(cors);
 
-        let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
-        
-        // 終了条件
-        if input.trim().eq_ignore_ascii_case("quit") || 
-           input.trim().eq_ignore_ascii_case("exit") {
-            println!("Bot: ご利用ありがとうございました。");
-            break;
-        }
+    // サーバーアドレスの設定
+    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    println!("Server running on http://{}", addr);
 
-        // ボットの応答を取得して表示
-        let response = chatbot.process_message("user1".to_string(), input).await?;
-        println!("Bot: {}", response);
-    }
-
-    Ok(())
+    // サーバーの起動
+    axum::Server::bind(&addr)
+        .serve(app.into_make_service())
+        .await
+        .unwrap();
 } 
