@@ -15,8 +15,12 @@ export default function Chat() {
 
   useEffect(() => {
     if (lastMessage) {
-      const message = JSON.parse(lastMessage.data) as Message;
-      setMessages(prev => [...prev, message]);
+      try {
+        const message = JSON.parse(lastMessage.data) as Message;
+        setMessages(prev => [...prev, message]);
+      } catch (error) {
+        console.error('Failed to parse message:', error);
+      }
     }
   }, [lastMessage]);
 
@@ -50,11 +54,11 @@ export default function Chat() {
             }`}
           >
             <div
-              className={`max-w-[70%] rounded-lg p-3 ${
+              className={`max-w-[70%] rounded-lg p-3 text-black ${
                 msg.message_type === 'user_message'
-                  ? 'bg-blue-500 text-white'
+                  ? 'bg-blue-100'
                   : msg.message_type === 'error'
-                  ? 'bg-red-500 text-white'
+                  ? 'bg-red-100'
                   : 'bg-white'
               }`}
             >
