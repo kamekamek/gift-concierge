@@ -1,5 +1,6 @@
-use actix_web::{web, App, HttpServer};
+use actix_web::{web, App, HttpServer, HttpResponse, HttpRequest};
 use actix_cors::Cors;
+use actix_web_actors::ws;
 use dotenv::dotenv;
 use std::env;
 use tracing_subscriber;
@@ -7,7 +8,12 @@ use tracing_subscriber;
 mod api;
 mod app;
 
+use crate::app::chat::websocket::WebSocketSession;
 use crate::app::gift::recommendation::RecommendationService;
+
+async fn ws_index(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, actix_web::Error> {
+    ws::start(WebSocketSession::new(), &req, stream)
+}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -34,6 +40,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .wrap(cors)
             .app_data(recommendation_service.clone())
+            .service(web::resource("/ws").route(web::get().to(ws_index)))
             .configure(api::recommendations::config)
     })
     .bind("127.0.0.1:3001")?
