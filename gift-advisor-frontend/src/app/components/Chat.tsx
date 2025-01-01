@@ -45,6 +45,10 @@ export default function Chat() {
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
+      <div className="bg-white p-4 border-b shadow-sm">
+        <h1 className="text-2xl font-bold text-gray-800">お返しコンシェルジュ</h1>
+        <p className="text-sm text-gray-600">おすすめのギフト</p>
+      </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((msg, index) => (
           <div
@@ -84,7 +88,7 @@ export default function Chat() {
             value={input}
             onChange={e => setInput(e.target.value)}
             placeholder="メッセージを入力..."
-            className="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 p-2 border rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             type="submit"
