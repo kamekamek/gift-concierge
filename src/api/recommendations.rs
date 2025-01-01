@@ -1,43 +1,40 @@
-use axum::{
-    extract::Query,
-    response::IntoResponse,
-    http::StatusCode,
-    Json,
-};
+use actix_web::{web, HttpResponse, Result};
 use serde::{Deserialize, Serialize};
-use crate::app::gift::recommendation::GiftRecommender;
+use crate::app::gift::recommendation::{RecommendationService, GiftInput};
 
 #[derive(Debug, Deserialize)]
-pub struct RecommendationParams {
-    budget: Option<i32>,
-    occasion: Option<String>,
-    age: Option<i32>,
-    gender: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct Gift {
-    name: String,
-    price: i32,
-    description: String,
-    image_url: Option<String>,
+pub struct RecommendationRequest {
+    gift_type: String,
+    price_range: String,
+    relationship: String,
+    event_type: String,
+    additional_notes: Option<String>,
 }
 
 pub async fn get_recommendations(
-    Query(params): Query<RecommendationParams>,
-) -> impl IntoResponse {
-    let recommender = GiftRecommender::new();
-    
-    match recommender.get_recommendations(
-        params.budget,
-        params.occasion.as_deref(),
-        params.age,
-        params.gender.as_deref(),
-    ).await {
-        Ok(gifts) => (StatusCode::OK, Json(gifts)),
-        Err(_) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(vec![]),
-        ),
+    data: web::Json<RecommendationRequest>,
+    recommendation_service: web::Data<RecommendationService>,
+) -> Result<HttpResponse> {
+    let input = GiftInput {
+        gift_type: data.gift_type.clone(),
+        price_range: data.price_range.clone(),
+        relationship: data.relationship.clone(),
+        event_type: data.event_type.clone(),
+        additional_notes: data.additional_notes.clone(),
+    };
+
+    match recommendation_service.generate_recommendations(input).await {
+        Ok(recommendations) => Ok(HttpResponse::Ok().json(recommendations)),
+        Err(e) => {
+            eprintln!("推奨生成エラー: {}", e);
+            Ok(HttpResponse::InternalServerError().json("推奨の生成中にエラーが発生しました"))
+        }
     }
+}
+
+pub fn config(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::resource("/api/recommendations")
+            .route(web::post().to(get_recommendations))
+    );
 } 

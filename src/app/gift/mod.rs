@@ -1,3 +1,2 @@
 pub mod recommendation;
-
-pub use recommendation::GiftRecommender; 
+pub use recommendation::{GiftInput, GiftRecommendation, RecommendationService}; 

@@ -1,30 +1,42 @@
-mod app;
+use actix_web::{web, App, HttpServer};
+use actix_cors::Cors;
+use dotenv::dotenv;
+use std::env;
+use tracing_subscriber;
+
 mod api;
+mod app;
 
-use std::net::SocketAddr;
-use tower_http::cors::{CorsLayer, Any};
-use tokio::net::TcpListener;
+use crate::app::gift::recommendation::RecommendationService;
 
-#[tokio::main]
-async fn main() {
-    // ロガーの初期化
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    // 環境変数の読み込み
+    dotenv().ok();
+    
+    // ロギングの初期化
     tracing_subscriber::fmt::init();
 
-    // CORSの設定
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+    // Perplexity APIキーの取得
+    let api_key = env::var("PERPLEXITY_API_KEY")
+        .expect("PERPLEXITY_API_KEY must be set");
 
-    // アプリケーションの構築
-    let app = api::create_router()
-        .layer(cors);
-
-    // サーバーアドレスの設定
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    let listener = TcpListener::bind(addr).await.unwrap();
-    println!("Server running on http://{}", addr);
+    // レコメンデーションサービスの初期化
+    let recommendation_service = web::Data::new(RecommendationService::new(api_key));
 
     // サーバーの起動
-    axum::serve(listener, app).await.unwrap();
+    HttpServer::new(move || {
+        let cors = Cors::default()
+            .allow_any_origin()
+            .allow_any_method()
+            .allow_any_header();
+
+        App::new()
+            .wrap(cors)
+            .app_data(recommendation_service.clone())
+            .configure(api::recommendations::config)
+    })
+    .bind("127.0.0.1:3001")?
+    .run()
+    .await
 } 

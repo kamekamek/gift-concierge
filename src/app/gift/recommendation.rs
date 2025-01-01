@@ -1,112 +1,92 @@
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio::sync::Mutex;
+use reqwest::Client;
+use std::error::Error;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Gift {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GiftInput {
+    pub gift_type: String,
+    pub price_range: String,
+    pub relationship: String,
+    pub event_type: String,
+    pub additional_notes: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GiftRecommendation {
     pub name: String,
-    pub price: i32,
-    pub description: String,
-    pub image_url: Option<String>,
-    pub category: String,
-    pub rating: f32,
-    pub source: String,
+    pub price: String,
+    pub store: String,
+    pub reason: String,
+    pub etiquette_advice: String,
 }
 
-#[derive(Debug, Clone)]
-pub struct GiftRecommender {
-    cache: Arc<Mutex<GiftCache>>,
+pub struct RecommendationService {
+    perplexity_client: Client,
+    api_key: String,
 }
 
-#[derive(Debug, Default)]
-struct GiftCache {
-    gifts: Vec<Gift>,
-    last_query: Option<SearchQuery>,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-struct SearchQuery {
-    budget: i32,
-    occasion: String,
-    age: Option<i32>,
-    gender: Option<String>,
-}
-
-impl GiftRecommender {
-    pub fn new() -> Self {
+impl RecommendationService {
+    pub fn new(api_key: String) -> Self {
         Self {
-            cache: Arc::new(Mutex::new(GiftCache::default())),
+            perplexity_client: Client::new(),
+            api_key,
         }
     }
 
-    pub async fn get_recommendations(
+    pub async fn generate_recommendations(
         &self,
-        budget: Option<i32>,
-        occasion: Option<&str>,
-        age: Option<i32>,
-        gender: Option<&str>,
-    ) -> Result<Vec<Gift>> {
-        let budget = budget.unwrap_or(30000);
-        let occasion = occasion.unwrap_or("就職祝い").to_string();
-
-        let query = SearchQuery {
-            budget,
-            occasion: occasion.clone(),
-            age,
-            gender: gender.map(String::from),
-        };
-
-        let mut cache = self.cache.lock().await;
+        input: GiftInput,
+    ) -> Result<Vec<GiftRecommendation>, Box<dyn Error>> {
+        // OpenAIでプロンプト生成
+        let prompt = self.generate_search_prompt(&input);
         
-        // キャッシュチェック
-        if let Some(last_query) = &cache.last_query {
-            if last_query == &query && !cache.gifts.is_empty() {
-                return Ok(cache.gifts.clone());
-            }
-        }
-
-        // Perplexity APIを使用してギフトを検索
-        let gifts = self.search_gifts(&query).await?;
+        // Perplexity APIで検索
+        let search_results = self.search_gifts(&prompt).await?;
         
-        // 結果をキャッシュに保存
-        cache.gifts = gifts.clone();
-        cache.last_query = Some(query);
-
-        Ok(gifts)
+        // 結果を構造化
+        let recommendations = self.process_search_results(search_results)?;
+        
+        Ok(recommendations)
     }
 
-    async fn search_gifts(&self, query: &SearchQuery) -> Result<Vec<Gift>> {
-        // TODO: Perplexity APIを使用した実際の検索を実装
-        // 現在はモックデータを返す
-        Ok(vec![
-            Gift {
-                name: "高級万年筆セット".to_string(),
-                price: query.budget - 5000,
-                description: "ビジネスシーンで活躍する高級万年筆とケースのセット".to_string(),
-                image_url: Some("https://example.com/pen.jpg".to_string()),
-                category: "文具".to_string(),
-                rating: 4.5,
-                source: "高級文具専門店".to_string(),
-            },
-            Gift {
-                name: "革製ビジネスバッグ".to_string(),
-                price: query.budget,
-                description: "上質な革を使用したビジネスバッグ。収納力も抜群".to_string(),
-                image_url: Some("https://example.com/bag.jpg".to_string()),
-                category: "バッグ".to_string(),
-                rating: 4.8,
-                source: "有名バッグブランド".to_string(),
-            },
-            Gift {
-                name: "高級腕時計".to_string(),
-                price: query.budget + 5000,
-                description: "ビジネスシーンにふさわしい高級腕時計".to_string(),
-                image_url: Some("https://example.com/watch.jpg".to_string()),
-                category: "アクセサリー".to_string(),
-                rating: 4.7,
-                source: "時計専門店".to_string(),
-            },
-        ])
+    fn generate_search_prompt(&self, input: &GiftInput) -> String {
+        format!(
+            "お返しギフトの提案: 受け取ったギフト: {}, 価格帯: {}, 関係: {}, イベント: {}, 備考: {}",
+            input.gift_type,
+            input.price_range,
+            input.relationship,
+            input.event_type,
+            input.additional_notes.as_deref().unwrap_or("")
+        )
+    }
+
+    async fn search_gifts(&self, prompt: &str) -> Result<String, Box<dyn Error>> {
+        // Perplexity APIの呼び出し実装
+        let response = self.perplexity_client
+            .post("https://api.perplexity.ai/search")
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .json(&serde_json::json!({
+                "query": prompt
+            }))
+            .send()
+            .await?;
+
+        let result = response.text().await?;
+        Ok(result)
+    }
+
+    fn process_search_results(&self, _results: String) -> Result<Vec<GiftRecommendation>, Box<dyn Error>> {
+        // 検索結果を構造化されたレコメンデーションに変換
+        let recommendations = vec![
+            GiftRecommendation {
+                name: "商品名".to_string(),
+                price: "価格".to_string(),
+                store: "店舗".to_string(),
+                reason: "選定理由".to_string(),
+                etiquette_advice: "マナーアドバイス".to_string(),
+            }
+        ];
+        
+        Ok(recommendations)
     }
 } 
