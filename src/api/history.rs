@@ -24,7 +24,7 @@ pub async fn get_chat_history(
     Query(params): Query<HistoryParams>,
 ) -> impl IntoResponse {
     // TODO: データベースからの履歴取得を実装
-    let limit = params.limit.unwrap_or(10);
+    let _limit = params.limit.unwrap_or(10);
     let messages: Vec<ChatMessage> = vec![]; // 仮の空実装
     
     (StatusCode::OK, Json(messages))

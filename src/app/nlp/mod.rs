@@ -1,2 +1,1 @@
-pub mod intent_classifier;
-pub use intent_classifier::{Intent, IntentClassifier}; 
+pub mod intent_classifier; 

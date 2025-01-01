@@ -29,7 +29,7 @@ pub async fn ws_handler(
     ws.on_upgrade(handle_socket)
 }
 
-async fn handle_socket(mut socket: WebSocket) {
+async fn handle_socket(socket: WebSocket) {
     let (mut sender, mut receiver) = socket.split();
     let chatbot = Arc::new(ChatBot::new());
 
