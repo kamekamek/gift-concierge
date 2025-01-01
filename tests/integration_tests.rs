@@ -1,9 +1,9 @@
 use anyhow::Result;
 use tokio;
-use crate::app::chat::chatbot::Chatbot;
-use crate::app::database::user_record::UserDatabase;
-use crate::app::database::gift_cache::GiftCache;
-use crate::config::config::Config;
+use my_project::app::chat::chatbot::Chatbot;
+use my_project::app::database::user_record::UserDatabase;
+use my_project::app::database::gift_cache::GiftCache;
+use my_project::config::config::Config;
 
 async fn setup_test_environment() -> Result<(Chatbot, UserDatabase, GiftCache)> {
     let config = Config::new()?;
@@ -87,7 +87,7 @@ async fn test_cache_functionality() -> Result<()> {
     let (_chatbot, _user_db, gift_cache) = setup_test_environment().await?;
     
     // キャッシュにギフトを追加
-    let gift = crate::app::database::gift_cache::CachedGift {
+    let gift = my_project::app::database::gift_cache::CachedGift {
         name: "テストギフト".to_string(),
         description: "テスト用のギフトです".to_string(),
         price: 10000,
