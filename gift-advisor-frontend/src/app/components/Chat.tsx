@@ -56,10 +56,10 @@ export default function Chat() {
             <div
               className={`max-w-[70%] rounded-lg p-3 text-black ${
                 msg.message_type === 'user_message'
-                  ? 'bg-blue-100'
+                  ? 'bg-blue-200'
                   : msg.message_type === 'error'
-                  ? 'bg-red-100'
-                  : 'bg-white'
+                  ? 'bg-red-200'
+                  : 'bg-gray-100'
               }`}
             >
               {msg.message_type === 'typing' ? (
