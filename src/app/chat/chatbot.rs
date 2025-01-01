@@ -2,208 +2,86 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::app::nlp::intent_classifier::{Intent, IntentClassifier};
-use crate::app::chat::conversation_handler::ConversationHandler;
-use crate::app::gift::recommendation::RecommendationEngine;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UserContext {
-    pub user_id: String,
-    pub relationship: Option<String>,
-    pub budget: Option<i32>,
-    pub is_bulk_gift: Option<bool>,
-    pub recipient_gender: Option<String>,
-    pub recipient_age: Option<String>,
-}
 
 #[derive(Debug, Clone)]
-pub struct Chatbot {
-    contexts: Arc<Mutex<Vec<UserContext>>>,
-    intent_classifier: IntentClassifier,
-    conversation_handler: Arc<Mutex<ConversationHandler>>,
-    recommendation_engine: RecommendationEngine,
+pub struct ChatBot {
+    conversation_state: Arc<Mutex<ConversationState>>,
 }
 
-impl Chatbot {
+#[derive(Debug, Default)]
+struct ConversationState {
+    current_step: ConversationStep,
+    gift_params: GiftParams,
+}
+
+#[derive(Debug, Default)]
+enum ConversationStep {
+    #[default]
+    Initial,
+    AskingBudget,
+    AskingOccasion,
+    AskingAge,
+    AskingGender,
+    Recommending,
+}
+
+#[derive(Debug, Default)]
+struct GiftParams {
+    budget: Option<i32>,
+    occasion: Option<String>,
+    age: Option<i32>,
+    gender: Option<String>,
+}
+
+impl ChatBot {
     pub fn new() -> Self {
         Self {
-            contexts: Arc::new(Mutex::new(Vec::new())),
-            intent_classifier: IntentClassifier::new(),
-            conversation_handler: Arc::new(Mutex::new(ConversationHandler::new())),
-            recommendation_engine: RecommendationEngine::new(),
+            conversation_state: Arc::new(Mutex::new(ConversationState::default())),
         }
     }
 
-    async fn get_or_create_context(&self, user_id: &str) -> UserContext {
-        let mut contexts = self.contexts.lock().await;
-        if let Some(context) = contexts.iter().find(|c| c.user_id == user_id) {
-            context.clone()
-        } else {
-            let new_context = UserContext {
-                user_id: user_id.to_string(),
-                relationship: None,
-                budget: None,
-                is_bulk_gift: None,
-                recipient_gender: None,
-                recipient_age: None,
-            };
-            contexts.push(new_context.clone());
-            new_context
-        }
-    }
-
-    async fn update_context(&self, context: UserContext) {
-        let mut contexts = self.contexts.lock().await;
-        if let Some(existing_context) = contexts.iter_mut().find(|c| c.user_id == context.user_id) {
-            *existing_context = context;
-        }
-    }
-
-    pub async fn process_message(&self, user_id: String, message: String) -> Result<String> {
-        let mut context = self.get_or_create_context(&user_id).await;
-        let mut conversation_handler = self.conversation_handler.lock().await;
+    pub async fn process_message(&self, message: &str) -> Result<String> {
+        let mut state = self.conversation_state.lock().await;
         
-        // 意図の分類
-        let intent = self.intent_classifier.classify(&message);
-        
-        // 意図に基づく応答の生成
-        let response = match intent {
-            Intent::Greeting => "こんにちは！お返しの相談を承ります。".to_string(),
-            Intent::AskRelationship => {
-                if let Some(relationship) = self.extract_relationship(&message) {
-                    context.relationship = Some(relationship);
-                    conversation_handler.transition();
-                    conversation_handler.get_next_question()
+        match state.current_step {
+            ConversationStep::Initial => {
+                state.current_step = ConversationStep::AskingBudget;
+                Ok("ギフト選びのお手伝いをさせていただきます。予算はおいくらくらいでしょうか？".to_string())
+            }
+            ConversationStep::AskingBudget => {
+                if let Ok(budget) = message.trim().replace("円", "").replace(",", "").parse::<i32>() {
+                    state.gift_params.budget = Some(budget);
+                    state.current_step = ConversationStep::AskingOccasion;
+                    Ok("どのようなお返しでしょうか？（例：就職祝い、結婚祝い、など）".to_string())
                 } else {
-                    "申し訳ありません。関係性をもう一度お聞かせいただけますか？".to_string()
+                    Ok("申し訳ありません。予算を数字で入力してください。".to_string())
                 }
             }
-            Intent::AskBudget => {
-                if let Some(budget) = self.extract_budget(&message) {
-                    context.budget = Some(budget);
-                    conversation_handler.transition();
-                    conversation_handler.get_next_question()
+            ConversationStep::AskingOccasion => {
+                state.gift_params.occasion = Some(message.to_string());
+                state.current_step = ConversationStep::AskingAge;
+                Ok("お相手の年齢層を教えていただけますか？".to_string())
+            }
+            ConversationStep::AskingAge => {
+                if let Ok(age) = message.trim().replace("歳", "").replace("代", "").parse::<i32>() {
+                    state.gift_params.age = Some(age);
+                    state.current_step = ConversationStep::AskingGender;
+                    Ok("お相手の性別を教えていただけますか？".to_string())
                 } else {
-                    "申し訳ありません。金額をもう一度お聞かせいただけますか？".to_string()
+                    Ok("申し訳ありません。年齢を数字で入力してください。".to_string())
                 }
             }
-            Intent::AskBulkGift => {
-                context.is_bulk_gift = Some(message.contains("同じ"));
-                conversation_handler.transition();
-                conversation_handler.get_next_question()
-            }
-            Intent::AskGender => {
-                context.recipient_gender = Some(if message.contains("男性") {
-                    "male".to_string()
-                } else if message.contains("女性") {
-                    "female".to_string()
-                } else {
-                    "unknown".to_string()
-                });
-                conversation_handler.transition();
-                conversation_handler.get_next_question()
-            }
-            Intent::AskAge => {
-                context.recipient_age = Some(message.to_string());
-                conversation_handler.transition();
+            ConversationStep::AskingGender => {
+                state.gift_params.gender = Some(message.to_string());
+                state.current_step = ConversationStep::Recommending;
                 
-                // 必要な情報が揃った場合、ギフトを推薦
-                if let (Some(relationship), Some(budget)) = (context.relationship.as_ref(), context.budget) {
-                    let recommendations = self.recommendation_engine
-                        .get_recommendations(
-                            relationship,
-                            budget,
-                            context.is_bulk_gift.unwrap_or(false),
-                            context.recipient_gender.as_deref(),
-                            context.recipient_age.as_deref(),
-                        )
-                        .await?;
-
-                    let mut response = "以下のギフトをおすすめいたします：\n\n".to_string();
-                    for (i, rec) in recommendations.iter().enumerate() {
-                        response.push_str(&format!(
-                            "{}. {}\n   {}\n   価格: {}円\n\n",
-                            i + 1,
-                            rec.name,
-                            rec.description,
-                            rec.price
-                        ));
-                    }
-                    response
-                } else {
-                    conversation_handler.get_next_question()
-                }
+                // ここでギフト推薦ロジックを呼び出す
+                Ok("ご要望に合わせたギフトをお探しします。少々お待ちください...".to_string())
             }
-            Intent::AskManners => "のし紙には「御祝」と記載し、お返しは1ヶ月以内が一般的とされています。".to_string(),
-            Intent::Unknown => conversation_handler.get_next_question(),
-        };
-
-        self.update_context(context).await;
-        Ok(response)
-    }
-
-    fn extract_relationship(&self, message: &str) -> Option<String> {
-        let message = message.to_lowercase();
-        if message.contains("上司") {
-            Some("上司".to_string())
-        } else if message.contains("先輩") {
-            Some("先輩".to_string())
-        } else if message.contains("友人") {
-            Some("友人".to_string())
-        } else if message.contains("親戚") {
-            Some("親戚".to_string())
-        } else {
-            None
+            ConversationStep::Recommending => {
+                state.current_step = ConversationStep::Initial;
+                Ok("新しいギフト相談を始めましょう。どのようなお返しをお探しですか？".to_string())
+            }
         }
-    }
-
-    fn extract_budget(&self, message: &str) -> Option<i32> {
-        let message = message.to_lowercase();
-        if let Some(pos) = message.find("万円") {
-            let start = pos.saturating_sub(10);
-            let number_str: String = message[start..pos]
-                .chars()
-                .filter(|c| c.is_digit(10))
-                .collect();
-            number_str.parse::<i32>().ok().map(|n| n * 10000)
-        } else if let Some(pos) = message.find("円") {
-            let start = pos.saturating_sub(10);
-            let number_str: String = message[start..pos]
-                .chars()
-                .filter(|c| c.is_digit(10))
-                .collect();
-            number_str.parse::<i32>().ok()
-        } else {
-            None
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_chatbot_initialization() {
-        let chatbot = Chatbot::new();
-        let response = chatbot
-            .process_message("test_user".to_string(), "こんにちは".to_string())
-            .await;
-        assert!(response.is_ok());
-        assert!(response.unwrap().contains("こんにちは"));
-    }
-
-    #[tokio::test]
-    async fn test_relationship_extraction() {
-        let chatbot = Chatbot::new();
-        assert_eq!(chatbot.extract_relationship("上司です"), Some("上司".to_string()));
-        assert_eq!(chatbot.extract_relationship("友人からです"), Some("友人".to_string()));
-    }
-
-    #[tokio::test]
-    async fn test_budget_extraction() {
-        let chatbot = Chatbot::new();
-        assert_eq!(chatbot.extract_budget("3万円です"), Some(30000));
-        assert_eq!(chatbot.extract_budget("30000円です"), Some(30000));
     }
 } 

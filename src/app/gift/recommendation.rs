@@ -1,199 +1,112 @@
 use anyhow::Result;
-use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GiftRecommendation {
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Gift {
     pub name: String,
-    pub description: String,
     pub price: i32,
+    pub description: String,
+    pub image_url: Option<String>,
     pub category: String,
-    pub url: Option<String>,
+    pub rating: f32,
+    pub source: String,
 }
 
 #[derive(Debug, Clone)]
-pub struct RecommendationEngine {
-    client: Arc<Client>,
-    gift_database: HashMap<String, Vec<GiftRecommendation>>,
+pub struct GiftRecommender {
+    cache: Arc<Mutex<GiftCache>>,
 }
 
-impl RecommendationEngine {
+#[derive(Debug, Default)]
+struct GiftCache {
+    gifts: Vec<Gift>,
+    last_query: Option<SearchQuery>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct SearchQuery {
+    budget: i32,
+    occasion: String,
+    age: Option<i32>,
+    gender: Option<String>,
+}
+
+impl GiftRecommender {
     pub fn new() -> Self {
         Self {
-            client: Arc::new(Client::new()),
-            gift_database: Self::initialize_database(),
+            cache: Arc::new(Mutex::new(GiftCache::default())),
         }
-    }
-
-    fn initialize_database() -> HashMap<String, Vec<GiftRecommendation>> {
-        let mut gift_database = HashMap::new();
-        
-        // 上司・先輩向けギフト
-        gift_database.insert("上司".to_string(), vec![
-            GiftRecommendation {
-                name: "高級ボールペン".to_string(),
-                description: "ビジネスシーンで活躍する、上質な書き味のボールペン".to_string(),
-                price: 15000,
-                category: "文具".to_string(),
-                url: None,
-            },
-            GiftRecommendation {
-                name: "名入れ革小物".to_string(),
-                description: "上質な革を使用した、名入れ可能なカードケース".to_string(),
-                price: 20000,
-                category: "革小物".to_string(),
-                url: None,
-            },
-        ]);
-        
-        // 友人向けギフト
-        gift_database.insert("友人".to_string(), vec![
-            GiftRecommendation {
-                name: "ワイヤレスイヤホン".to_string(),
-                description: "高音質で使いやすい、最新のワイヤレスイヤホン".to_string(),
-                price: 15000,
-                category: "電化製品".to_string(),
-                url: None,
-            },
-            GiftRecommendation {
-                name: "グルメギフトセット".to_string(),
-                description: "選りすぐりの食材を集めた、贅沢なグルメセット".to_string(),
-                price: 10000,
-                category: "食品".to_string(),
-                url: None,
-            },
-        ]);
-        
-        // 親戚向けギフト
-        gift_database.insert("親戚".to_string(), vec![
-            GiftRecommendation {
-                name: "高級タオルセット".to_string(),
-                description: "上質な肌触りの、ギフトボックス入りタオルセット".to_string(),
-                price: 8000,
-                category: "日用品".to_string(),
-                url: None,
-            },
-            GiftRecommendation {
-                name: "お茶・茶器セット".to_string(),
-                description: "厳選された日本茶と、趣のある茶器のセット".to_string(),
-                price: 12000,
-                category: "食品".to_string(),
-                url: None,
-            },
-        ]);
-
-        gift_database
     }
 
     pub async fn get_recommendations(
         &self,
-        relationship: &str,
-        budget: i32,
-        is_bulk_gift: bool,
+        budget: Option<i32>,
+        occasion: Option<&str>,
+        age: Option<i32>,
         gender: Option<&str>,
-        age: Option<&str>,
-    ) -> Result<Vec<GiftRecommendation>> {
-        let mut recommendations = if let Some(gifts) = self.gift_database.get(relationship) {
-            gifts.clone()
-        } else {
-            // 関係性に基づくギフトが見つからない場合は、汎用的なギフトを提案
-            vec![
-                GiftRecommendation {
-                    name: "ギフトカタログ".to_string(),
-                    description: "受け取る方が好みの商品を選べる、カタログギフト".to_string(),
-                    price: budget,
-                    category: "カタログ".to_string(),
-                    url: None,
-                },
-                GiftRecommendation {
-                    name: "商品券".to_string(),
-                    description: "様々な商品に使える、汎用性の高い商品券".to_string(),
-                    price: budget,
-                    category: "商品券".to_string(),
-                    url: None,
-                },
-            ]
+    ) -> Result<Vec<Gift>> {
+        let budget = budget.unwrap_or(30000);
+        let occasion = occasion.unwrap_or("就職祝い").to_string();
+
+        let query = SearchQuery {
+            budget,
+            occasion: occasion.clone(),
+            age,
+            gender: gender.map(String::from),
         };
 
-        // 予算でフィルタリング
-        recommendations.retain(|gift| gift.price <= budget);
-
-        // 性別に基づくフィルタリング
-        if let Some(gender) = gender {
-            match gender {
-                "male" => {
-                    recommendations.retain(|gift| 
-                        !gift.category.contains("化粧品") && 
-                        !gift.category.contains("アクセサリー")
-                    );
-                }
-                "female" => {
-                    // 女性向けカテゴリーの優先順位を上げる
-                    recommendations.sort_by(|a, b| {
-                        let a_score = if a.category.contains("アクセサリー") || 
-                                      a.category.contains("化粧品") { 0 } else { 1 };
-                        let b_score = if b.category.contains("アクセサリー") || 
-                                      b.category.contains("化粧品") { 0 } else { 1 };
-                        a_score.cmp(&b_score)
-                    });
-                }
-                _ => {}
+        let mut cache = self.cache.lock().await;
+        
+        // キャッシュチェック
+        if let Some(last_query) = &cache.last_query {
+            if last_query == &query && !cache.gifts.is_empty() {
+                return Ok(cache.gifts.clone());
             }
         }
 
-        // まとめ買いの場合、単価を調整
-        if is_bulk_gift {
-            recommendations.iter_mut().for_each(|gift| {
-                gift.price = (gift.price as f64 * 0.9) as i32; // 10%割引
-                gift.description = format!("{}（まとめ買い割引適用）", gift.description);
-            });
-        }
+        // Perplexity APIを使用してギフトを検索
+        let gifts = self.search_gifts(&query).await?;
+        
+        // 結果をキャッシュに保存
+        cache.gifts = gifts.clone();
+        cache.last_query = Some(query);
 
-        // 年齢に基づく並び替え
-        if let Some(age) = age {
-            let age_num = age.trim_end_matches("代").parse::<i32>().unwrap_or(30);
-            recommendations.sort_by(|a, b| {
-                let a_score = Self::calculate_age_relevance(&a.category, age_num);
-                let b_score = Self::calculate_age_relevance(&b.category, age_num);
-                b_score.cmp(&a_score)
-            });
-        }
-
-        Ok(recommendations)
+        Ok(gifts)
     }
 
-    fn calculate_age_relevance(category: &str, age: i32) -> i32 {
-        match category {
-            c if c.contains("電化製品") => {
-                if age < 40 { 3 } else { 1 }
-            }
-            c if c.contains("文具") => {
-                if age > 30 { 3 } else { 2 }
-            }
-            c if c.contains("食品") => {
-                if age > 50 { 3 } else { 2 }
-            }
-            _ => 2,
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_get_recommendations() {
-        let engine = RecommendationEngine::new();
-        
-        let recommendations = engine
-            .get_recommendations("上司", 30000, false, Some("male"), Some("50代"))
-            .await
-            .unwrap();
-        
-        assert!(!recommendations.is_empty());
-        assert!(recommendations.iter().all(|r| r.price <= 30000));
+    async fn search_gifts(&self, query: &SearchQuery) -> Result<Vec<Gift>> {
+        // TODO: Perplexity APIを使用した実際の検索を実装
+        // 現在はモックデータを返す
+        Ok(vec![
+            Gift {
+                name: "高級万年筆セット".to_string(),
+                price: query.budget - 5000,
+                description: "ビジネスシーンで活躍する高級万年筆とケースのセット".to_string(),
+                image_url: Some("https://example.com/pen.jpg".to_string()),
+                category: "文具".to_string(),
+                rating: 4.5,
+                source: "高級文具専門店".to_string(),
+            },
+            Gift {
+                name: "革製ビジネスバッグ".to_string(),
+                price: query.budget,
+                description: "上質な革を使用したビジネスバッグ。収納力も抜群".to_string(),
+                image_url: Some("https://example.com/bag.jpg".to_string()),
+                category: "バッグ".to_string(),
+                rating: 4.8,
+                source: "有名バッグブランド".to_string(),
+            },
+            Gift {
+                name: "高級腕時計".to_string(),
+                price: query.budget + 5000,
+                description: "ビジネスシーンにふさわしい高級腕時計".to_string(),
+                image_url: Some("https://example.com/watch.jpg".to_string()),
+                category: "アクセサリー".to_string(),
+                rating: 4.7,
+                source: "時計専門店".to_string(),
+            },
+        ])
     }
 } 
